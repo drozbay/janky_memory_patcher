@@ -13,6 +13,7 @@ class ModelMemoryPatcher:
     MEMORY_THRESHOLD = 1024 * 1024 * 1024 * 10
     MEMORY_REDUCTION = 1024 * 1024 * 1024 * 0.0
     MEMORY_PARTIAL = 1024 * 1024 * 1024 * 0.0
+    FORCE_PARTIAL_LOAD = False
 
     @classmethod
     def init_patch(cls) -> None:
@@ -47,7 +48,7 @@ class ModelMemoryPatcher:
                     if self.model.model_lowvram == False and self.model.model_loaded_weight_memory > 0:
                         self.apply_hooks(self.forced_hooks, force_apply=True)
                         return 0
-                    if self.model.model_loaded_weight_memory + extra_memory > self.model_size():
+                    if self.model.model_loaded_weight_memory + extra_memory > self.model_size() and not cls.FORCE_PARTIAL_LOAD:
                         full_load = True
                     
                     current_used = self.model.model_loaded_weight_memory
@@ -139,6 +140,11 @@ class ModelMemoryPatcher:
         cls.MEMORY_PARTIAL = manual_partial
         logging.info(f"Manual partial load set to: {int(manual_partial):,}")
 
+    @classmethod
+    def set_force_partial_load(cls, force_partial_load) -> None:
+        cls.FORCE_PARTIAL_LOAD = force_partial_load
+        logging.info(f"Force partial load set to: {force_partial_load}")
+
 
 class MemoryPatcherNode:
     def __init__(self) -> None:
@@ -158,6 +164,7 @@ class MemoryPatcherNode:
                 "buffer_gb": ("FLOAT", {"default": 0.5, "min": -100.0, "max": 100.0, "step": 0.01, "tooltip": "The amount of memory to reduce when the model is partially loaded."}),
                 "manual_partial_gb": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 100.0, "step": 0.01, "tooltip": "Only used if buffer_gb is 0. Manually set partial load size."}),
                 "enable": ("BOOLEAN", {"default": True, "tooltip": "Enable or disable the memory patching. (You have to run this node again to disable the patching.)"}),
+                "force_partial_load": ("BOOLEAN", {"default": False, "tooltip": "Force the model to be partially loaded even if it would normally be fully loaded."}),
             }
         }
     
@@ -174,13 +181,14 @@ Use at your own risk.
 (model is passthrough, patch is applied to the backend)
 """
 
-    def patch(self, model, min_weight_memory_ratio, model_threshold_gb, buffer_gb, manual_partial_gb, enable) -> tuple:
+    def patch(self, model, min_weight_memory_ratio, model_threshold_gb, buffer_gb, manual_partial_gb, enable, force_partial_load) -> tuple:
         if enable:
             ModelMemoryPatcher.init_patch()
             ModelMemoryPatcher.set_ratio(min_weight_memory_ratio)
             ModelMemoryPatcher.set_threshold(model_threshold_gb * 1024 * 1024 * 1024)
             ModelMemoryPatcher.set_reduction(buffer_gb * 1024 * 1024 * 1024)
             ModelMemoryPatcher.set_manual_partial(manual_partial_gb * 1024 * 1024 * 1024)
+            ModelMemoryPatcher.set_force_partial_load(force_partial_load)
         else:
             ModelMemoryPatcher.restore()
 
