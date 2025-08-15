@@ -172,6 +172,7 @@ class MemoryPatcherNode:
     FUNCTION = "patch"
     CATEGORY = "model_patches"
     EXPERIMENTAL = True
+    OUTPUT_NODE = True
     DESCRIPTION = """
 This is a janky experiment to patch the memory management
 of the model when a model is partially loaded. Sort of like
