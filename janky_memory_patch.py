@@ -1,5 +1,5 @@
 # janky memory patcher
-# drozbay 2025-02-07
+# drozbay 2025-02-07, revised 2025-08-25
 
 import comfy.model_management
 import comfy.model_patcher
@@ -45,15 +45,21 @@ class ModelMemoryPatcher:
 
                     self.patch_model(load_weights=False)
                     full_load = False
-                    if self.model.model_lowvram == False and self.model.model_loaded_weight_memory > 0:
-                        self.apply_hooks(self.forced_hooks, force_apply=True)
-                        return 0
-                    if self.model.model_loaded_weight_memory + extra_memory > self.model_size() and not cls.FORCE_PARTIAL_LOAD:
-                        full_load = True
-                    
+                    if not cls.FORCE_PARTIAL_LOAD:
+                        if self.model.model_lowvram == False and self.model.model_loaded_weight_memory > 0:
+                            self.apply_hooks(self.forced_hooks, force_apply=True)
+                            return 0
+                        if self.model.model_loaded_weight_memory + extra_memory > self.model_size():
+                            full_load = True
+                        
                     current_used = self.model.model_loaded_weight_memory
-                    adjusted_current_used = current_used
-                    adjusted_extra_memory = extra_memory
+                    if cls.FORCE_PARTIAL_LOAD:
+                        adjusted_current_used = 0
+                        adjusted_extra_memory = 512 * 1024 * 1024 # 512MB
+                    else:
+                        adjusted_current_used = current_used
+                        adjusted_extra_memory = extra_memory
+
                     # custom code
                     comfy.model_management.soft_empty_cache()
                     comfy.model_management.unload_all_models()
